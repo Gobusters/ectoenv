@@ -81,7 +81,10 @@ BindEnvWithAutoRefresh extends the functionality of BindEnv by adding automatic 
 ### Parameters
 
 - `v`: A non-nil pointer to a struct.
-- `interval`: The interval in seconds at which to refresh the environment variables. If `nil`, a default interval of 60 seconds is used.
+
+### AUTO_REFRESH_INTERVAL
+
+This variable sets the frequency that variables are refreshed. The default is 60 seconds.
 
 ### Usage
 
@@ -89,10 +92,10 @@ To use `BindEnvWithAutoRefresh`, pass your configuration struct and the desired 
 
 ```go Copy code
 func main() {
-var cfg Config
-refreshInterval := 30 // refresh every 30 seconds
+    var cfg Config
+    ectoenv.AUTO_REFRESH_INTERVAL := 30 // refresh every 30 seconds (defaults to 60 seconds)
 
-    err := ectoenv.BindEnvWithAutoRefresh(&cfg, &refreshInterval)
+    err := ectoenv.BindEnvWithAutoRefresh(&cfg)
     if err != nil {
         log.Fatalf("Failed to bind and auto-refresh environment variables: %v", err)
     }

@@ -209,7 +209,8 @@ func TestRefreshEnv(t *testing.T) {
 
 	config := &Config{}
 	interval := 1
-	err := BindEnvWithAutoRefresh(config, &interval)
+	AUTO_REFRESH_INTERVAL = interval
+	err := BindEnvWithAutoRefresh(config)
 	assert.Nil(t, err)
 
 	assert.Equal(t, "test", config.StringValue)
@@ -218,7 +219,7 @@ func TestRefreshEnv(t *testing.T) {
 	os.Setenv("STRING_VALUE", "test2")
 
 	// wait 1 second for refresh
-	<-time.After(time.Second * 1)
+	<-time.After(time.Millisecond * 1100)
 
 	assert.Equal(t, "test2", config.StringValue)
 }

@@ -14,6 +14,9 @@ var ENV_TAG = "env"
 
 var ENV_DEFAULT_TAG = "env-default"
 
+// AUTO_REFRESH_INTERVAL is the interval in seconds to refresh the environment variables
+var AUTO_REFRESH_INTERVAL = 60
+
 // BindEnv sets the values of the provided struct based on the values of the environment variables
 // defined in the struct's tags. The struct must be a non-nil pointer to a struct.
 // v: a non-nil pointer to a struct
@@ -139,21 +142,16 @@ func BindEnv(v interface{}) error {
 }
 
 // BindEnvWithAutoRefresh sets the values of the provided struct based on the values of the environment variables
-// defined in the struct's tags. The struct must be a non-nil pointer to a struct.
+// defined in the struct's tags. The struct must be a non-nil pointer to a struct. This function also refreshes the
+// environment variables on a interval set with `AUTO_REFRESH_INTERVAL`.
 // v: a non-nil pointer to a struct
-// interval: the interval in seconds to refresh the environment variables
 // returns: an error if the provided value is not a non-nil pointer to a struct or if the value of an environment variable
-func BindEnvWithAutoRefresh(v interface{}, interval *int) error {
+func BindEnvWithAutoRefresh(v interface{}) error {
 	if err := BindEnv(v); err != nil {
 		return err
 	}
 
-	if interval == nil {
-		defaultInterval := 60
-		interval = &defaultInterval
-	}
-
-	refresh(*interval, v)
+	refresh(AUTO_REFRESH_INTERVAL, v)
 
 	return nil
 }
