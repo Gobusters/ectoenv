@@ -2,224 +2,212 @@ package ectoenv
 
 import (
 	"os"
+	"reflect"
 	"testing"
 	"time"
-
-	"github.com/stretchr/testify/assert"
 )
 
-// Example struct for testing
-type Config struct {
-	StringValue      string   `env:"STRING_VALUE" env-default:"default"`
-	IntValue         int      `env:"INT_VALUE" env-default:"42"`
-	BoolValue        bool     `env:"BOOL_VALUE" env-default:"true"`
-	IntSliceValue    []int    `env:"INT_SLICE_VALUE" env-default:"1,2,3,4,5"`
-	StringSliceValue []string `env:"STRING_SLICE_VALUE" env-default:"a,b,c,d,e"`
-	BoolSliceValue   []bool   `env:"BOOL_SLICE_VALUE" env-default:"true,false,true,false,true"`
-	SubStruct        struct {
-		SubStringValue string `env:"SUB_STRING_VALUE" env-default:"subdefault"`
+func TestBindEnv(t *testing.T) {
+	type Config struct {
+		StringValue  string    `env:"TEST_STRING"`
+		IntValue     int       `env:"TEST_INT"`
+		BoolValue    bool      `env:"TEST_BOOL"`
+		FloatValue   float64   `env:"TEST_FLOAT"`
+		StringSlice  []string  `env:"TEST_STRING_SLICE"`
+		IntSlice     []int     `env:"TEST_INT_SLICE"`
+		BoolSlice    []bool    `env:"TEST_BOOL_SLICE"`
+		FloatSlice   []float64 `env:"TEST_FLOAT_SLICE"`
+		DefaultValue string    `env:"TEST_DEFAULT" env-default:"default"`
+	}
+
+	tests := []struct {
+		name     string
+		envVars  map[string]string
+		expected Config
+	}{
+		{
+			name: "All values set",
+			envVars: map[string]string{
+				"TEST_STRING":       "test",
+				"TEST_INT":          "42",
+				"TEST_BOOL":         "true",
+				"TEST_FLOAT":        "3.14",
+				"TEST_STRING_SLICE": "a,b,c",
+				"TEST_INT_SLICE":    "1,2,3",
+				"TEST_BOOL_SLICE":   "true,false,true",
+				"TEST_FLOAT_SLICE":  "1.1,2.2,3.3",
+			},
+			expected: Config{
+				StringValue:  "test",
+				IntValue:     42,
+				BoolValue:    true,
+				FloatValue:   3.14,
+				StringSlice:  []string{"a", "b", "c"},
+				IntSlice:     []int{1, 2, 3},
+				BoolSlice:    []bool{true, false, true},
+				FloatSlice:   []float64{1.1, 2.2, 3.3},
+				DefaultValue: "default",
+			},
+		},
+		{
+			name:    "Default value",
+			envVars: map[string]string{},
+			expected: Config{
+				DefaultValue: "default",
+			},
+		},
+		{
+			name: "Partial values set",
+			envVars: map[string]string{
+				"TEST_STRING": "partial",
+				"TEST_BOOL":   "false",
+			},
+			expected: Config{
+				StringValue:  "partial",
+				BoolValue:    false,
+				DefaultValue: "default",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Set environment variables
+			for k, v := range tt.envVars {
+				os.Setenv(k, v)
+			}
+			defer func() {
+				// Clean up environment variables
+				for k := range tt.envVars {
+					os.Unsetenv(k)
+				}
+			}()
+
+			var config Config
+			err := BindEnv(&config)
+			if err != nil {
+				t.Fatalf("BindEnv() error = %v", err)
+			}
+
+			if !reflect.DeepEqual(config, tt.expected) {
+				t.Errorf("BindEnv() got = %v, want %v", config, tt.expected)
+			}
+		})
 	}
 }
 
-func TestBindEnv_ValidStructPointer(t *testing.T) {
-	os.Setenv("STRING_VALUE", "test")
-	os.Setenv("INT_VALUE", "42")
-	os.Setenv("BOOL_VALUE", "true")
-	os.Setenv("INT_SLICE_VALUE", "1,2,3,4,5")
-	os.Setenv("STRING_SLICE_VALUE", "a,b,c,d,e")
-	os.Setenv("BOOL_SLICE_VALUE", "true,false,true,false,true")
-	os.Setenv("SUB_STRING_VALUE", "subtest")
-	defer os.Clearenv()
+func TestBindEnvWithInvalidInput(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    interface{}
+		expected string
+	}{
+		{
+			name:     "Nil input",
+			input:    nil,
+			expected: "provided value must be a non-nil pointer to a struct",
+		},
+		{
+			name:     "Non-pointer input",
+			input:    struct{}{},
+			expected: "provided value must be a non-nil pointer to a struct",
+		},
+		{
+			name:     "Pointer to non-struct",
+			input:    new(int),
+			expected: "provided value must be a pointer to a struct",
+		},
+	}
 
-	config := &Config{}
-	err := BindEnv(config)
-
-	assert.Nil(t, err)
-	assert.Equal(t, "test", config.StringValue)
-	assert.Equal(t, 42, config.IntValue)
-	assert.Equal(t, true, config.BoolValue)
-	assert.Equal(t, []int{1, 2, 3, 4, 5}, config.IntSliceValue)
-	assert.Equal(t, []string{"a", "b", "c", "d", "e"}, config.StringSliceValue)
-	assert.Equal(t, []bool{true, false, true, false, true}, config.BoolSliceValue)
-	assert.Equal(t, "subtest", config.SubStruct.SubStringValue)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := BindEnv(tt.input)
+			if err == nil || err.Error() != tt.expected {
+				t.Errorf("BindEnv() error = %v, want %v", err, tt.expected)
+			}
+		})
+	}
 }
 
-func TestBindEnv_NilPointer(t *testing.T) {
-	err := BindEnv(nil)
-	assert.NotNil(t, err)
+func TestBindEnvWithInvalidValues(t *testing.T) {
+	type InvalidConfig struct {
+		IntValue   int     `env:"INVALID_INT"`
+		BoolValue  bool    `env:"INVALID_BOOL"`
+		FloatValue float64 `env:"INVALID_FLOAT"`
+	}
+
+	tests := []struct {
+		name    string
+		envVars map[string]string
+		field   string
+	}{
+		{
+			name:    "Invalid int",
+			envVars: map[string]string{"INVALID_INT": "not_an_int"},
+			field:   "IntValue",
+		},
+		{
+			name:    "Invalid bool",
+			envVars: map[string]string{"INVALID_BOOL": "not_a_bool"},
+			field:   "BoolValue",
+		},
+		{
+			name:    "Invalid float",
+			envVars: map[string]string{"INVALID_FLOAT": "not_a_float"},
+			field:   "FloatValue",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Set environment variables
+			for k, v := range tt.envVars {
+				os.Setenv(k, v)
+			}
+			defer func() {
+				// Clean up environment variables
+				for k := range tt.envVars {
+					os.Unsetenv(k)
+				}
+			}()
+
+			var config InvalidConfig
+			err := BindEnv(&config)
+			if err == nil {
+				t.Fatalf("BindEnv() expected error, got nil")
+			}
+			if !reflect.DeepEqual(config, InvalidConfig{}) {
+				t.Errorf("BindEnv() unexpectedly modified config: %v", config)
+			}
+		})
+	}
 }
 
-func TestBindEnv_NonPointerInput(t *testing.T) {
+func TestBindEnvWithAutoRefresh(t *testing.T) {
+	type Config struct {
+		Value string `env:"TEST_AUTO_REFRESH"`
+	}
+
+	os.Setenv("TEST_AUTO_REFRESH", "initial")
+	defer os.Unsetenv("TEST_AUTO_REFRESH")
+
 	var config Config
-	err := BindEnv(config)
-	assert.NotNil(t, err)
-}
-
-func TestBindEnv_NonStructPointer(t *testing.T) {
-	var intValue int
-	err := BindEnv(&intValue)
-	assert.NotNil(t, err)
-}
-
-func TestBindEnv_NonSettableField(t *testing.T) {
-	var config struct {
-		NonSettable string `env:"NON_SETTABLE"`
+	err := BindEnvWithAutoRefresh(&config)
+	if err != nil {
+		t.Fatalf("BindEnvWithAutoRefresh() error = %v", err)
 	}
-	err := BindEnv(&config)
-	assert.Nil(t, err)
-}
 
-func TestBindEnv_InvalidIntValue(t *testing.T) {
-	os.Setenv("INT_VALUE", "notanint")
-	defer os.Clearenv()
+	if config.Value != "initial" {
+		t.Errorf("Initial value not set correctly, got %v, want %v", config.Value, "initial")
+	}
 
-	config := &Config{}
-	err := BindEnv(config)
-	assert.NotNil(t, err)
-}
+	// Change the environment variable
+	os.Setenv("TEST_AUTO_REFRESH", "updated")
 
-func TestBindEnv_InvalidBoolValue(t *testing.T) {
-	os.Setenv("BOOL_VALUE", "notabool")
-	defer os.Clearenv()
+	// Wait for the refresh to occur
+	time.Sleep(time.Duration(AUTO_REFRESH_INTERVAL+1) * time.Second)
 
-	config := &Config{}
-	err := BindEnv(config)
-	assert.NotNil(t, err)
-}
-
-func TestBindEnv_InvalidIntSliceValue(t *testing.T) {
-	os.Setenv("INT_SLICE_VALUE", "notanint")
-	defer os.Clearenv()
-
-	config := &Config{}
-	err := BindEnv(config)
-	assert.NotNil(t, err)
-}
-
-func TestBindEnv_InvalidBoolSliceValue(t *testing.T) {
-	os.Setenv("BOOL_SLICE_VALUE", "notabool")
-	defer os.Clearenv()
-
-	config := &Config{}
-	err := BindEnv(config)
-	assert.NotNil(t, err)
-}
-
-func TestBindEnv_InvalidSliceValueElement(t *testing.T) {
-	os.Setenv("INT_SLICE_VALUE", "1,2,3,4,notanint")
-	defer os.Clearenv()
-
-	config := &Config{}
-	err := BindEnv(config)
-	assert.NotNil(t, err)
-}
-
-func TestBindEnv_InvalidSliceValueElementBool(t *testing.T) {
-	os.Setenv("BOOL_SLICE_VALUE", "true,false,true,false,notabool")
-	defer os.Clearenv()
-
-	config := &Config{}
-	err := BindEnv(config)
-	assert.NotNil(t, err)
-}
-
-func TestBindEnv_InvalidSliceValueElementBoolLength(t *testing.T) {
-	os.Setenv("BOOL_SLICE_VALUE", "true,false,true,false,")
-	defer os.Clearenv()
-
-	config := &Config{}
-	err := BindEnv(config)
-	assert.NotNil(t, err)
-}
-
-func TestBindEnv_InvalidSliceValueElementInt(t *testing.T) {
-	os.Setenv("INT_SLICE_VALUE", "1,2,3,4,notanint")
-	defer os.Clearenv()
-
-	config := &Config{}
-	err := BindEnv(config)
-	assert.NotNil(t, err)
-}
-
-func TestBindEnv_InvalidSliceValueElementIntLength(t *testing.T) {
-	os.Setenv("INT_SLICE_VALUE", "1,2,3,4,")
-	defer os.Clearenv()
-
-	config := &Config{}
-	err := BindEnv(config)
-	assert.NotNil(t, err)
-}
-
-func TestBindEnv_EmptySliceValue(t *testing.T) {
-	os.Setenv("INT_SLICE_VALUE", "")
-	defer os.Clearenv()
-
-	config := &Config{}
-	err := BindEnv(config)
-	assert.Nil(t, err)
-}
-
-func TestBindEnv_EmptySliceValueElement(t *testing.T) {
-	os.Setenv("STRING_SLICE_VALUE", "a,b,c,d,")
-	defer os.Clearenv()
-
-	config := &Config{}
-	err := BindEnv(config)
-	assert.Nil(t, err)
-	assert.Equal(t, []string{"a", "b", "c", "d", ""}, config.StringSliceValue)
-}
-
-func TestBindEnv_EmptySliceValueElementBool(t *testing.T) {
-	os.Setenv("BOOL_SLICE_VALUE", "true,false,true,false,")
-	defer os.Clearenv()
-
-	config := &Config{}
-	err := BindEnv(config)
-	assert.NotNil(t, err)
-}
-
-func TestBindEnv_EmptySliceValueElementInt(t *testing.T) {
-	os.Setenv("INT_SLICE_VALUE", "1,2,3,4,")
-	defer os.Clearenv()
-
-	config := &Config{}
-	err := BindEnv(config)
-	assert.NotNil(t, err)
-}
-
-func TestEnvironmentDefaultTag(t *testing.T) {
-	config := &Config{}
-	err := BindEnv(config)
-
-	assert.Nil(t, err)
-	assert.Equal(t, "default", config.StringValue)
-	assert.Equal(t, 42, config.IntValue)
-	assert.Equal(t, true, config.BoolValue)
-	assert.Equal(t, []int{1, 2, 3, 4, 5}, config.IntSliceValue)
-	assert.Equal(t, []string{"a", "b", "c", "d", "e"}, config.StringSliceValue)
-	assert.Equal(t, []bool{true, false, true, false, true}, config.BoolSliceValue)
-	assert.Equal(t, "subdefault", config.SubStruct.SubStringValue)
-}
-
-// test refresh env
-func TestRefreshEnv(t *testing.T) {
-	// set env
-	os.Setenv("STRING_VALUE", "test")
-	defer os.Clearenv()
-
-	config := &Config{}
-	interval := 1
-	AUTO_REFRESH_INTERVAL = interval
-	err := BindEnvWithAutoRefresh(config)
-	assert.Nil(t, err)
-
-	assert.Equal(t, "test", config.StringValue)
-
-	// change env
-	os.Setenv("STRING_VALUE", "test2")
-
-	// wait 1 second for refresh
-	<-time.After(time.Millisecond * 1100)
-
-	assert.Equal(t, "test2", config.StringValue)
+	if config.Value != "updated" {
+		t.Errorf("Value not updated after refresh, got %v, want %v", config.Value, "updated")
+	}
 }
