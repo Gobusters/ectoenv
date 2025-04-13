@@ -9,15 +9,17 @@ import (
 
 func TestBindEnv(t *testing.T) {
 	type Config struct {
-		StringValue  string    `env:"TEST_STRING"`
-		IntValue     int       `env:"TEST_INT"`
-		BoolValue    bool      `env:"TEST_BOOL"`
-		FloatValue   float64   `env:"TEST_FLOAT"`
-		StringSlice  []string  `env:"TEST_STRING_SLICE"`
-		IntSlice     []int     `env:"TEST_INT_SLICE"`
-		BoolSlice    []bool    `env:"TEST_BOOL_SLICE"`
-		FloatSlice   []float64 `env:"TEST_FLOAT_SLICE"`
-		DefaultValue string    `env:"TEST_DEFAULT" env-default:"default"`
+		StringValue       string          `env:"TEST_STRING"`
+		IntValue          int             `env:"TEST_INT"`
+		BoolValue         bool            `env:"TEST_BOOL"`
+		FloatValue        float64         `env:"TEST_FLOAT"`
+		StringSlice       []string        `env:"TEST_STRING_SLICE"`
+		IntSlice          []int           `env:"TEST_INT_SLICE"`
+		BoolSlice         []bool          `env:"TEST_BOOL_SLICE"`
+		FloatSlice        []float64       `env:"TEST_FLOAT_SLICE"`
+		DefaultValue      string          `env:"TEST_DEFAULT" env-default:"default"`
+		TimeDuration      time.Duration   `env:"TEST_TIME_DURATION"`
+		TimeDurationSlice []time.Duration `env:"TEST_TIME_DURATION_SLICE"`
 	}
 
 	tests := []struct {
@@ -28,25 +30,29 @@ func TestBindEnv(t *testing.T) {
 		{
 			name: "All values set",
 			envVars: map[string]string{
-				"TEST_STRING":       "test",
-				"TEST_INT":          "42",
-				"TEST_BOOL":         "true",
-				"TEST_FLOAT":        "3.14",
-				"TEST_STRING_SLICE": "a,b,c",
-				"TEST_INT_SLICE":    "1,2,3",
-				"TEST_BOOL_SLICE":   "true,false,true",
-				"TEST_FLOAT_SLICE":  "1.1,2.2,3.3",
+				"TEST_STRING":              "test",
+				"TEST_INT":                 "42",
+				"TEST_BOOL":                "true",
+				"TEST_FLOAT":               "3.14",
+				"TEST_STRING_SLICE":        "a,b,c",
+				"TEST_INT_SLICE":           "1,2,3",
+				"TEST_BOOL_SLICE":          "true,false,true",
+				"TEST_FLOAT_SLICE":         "1.1,2.2,3.3",
+				"TEST_TIME_DURATION":       "1h",
+				"TEST_TIME_DURATION_SLICE": "1h,2h,3h",
 			},
 			expected: Config{
-				StringValue:  "test",
-				IntValue:     42,
-				BoolValue:    true,
-				FloatValue:   3.14,
-				StringSlice:  []string{"a", "b", "c"},
-				IntSlice:     []int{1, 2, 3},
-				BoolSlice:    []bool{true, false, true},
-				FloatSlice:   []float64{1.1, 2.2, 3.3},
-				DefaultValue: "default",
+				StringValue:       "test",
+				IntValue:          42,
+				BoolValue:         true,
+				FloatValue:        3.14,
+				StringSlice:       []string{"a", "b", "c"},
+				IntSlice:          []int{1, 2, 3},
+				BoolSlice:         []bool{true, false, true},
+				FloatSlice:        []float64{1.1, 2.2, 3.3},
+				DefaultValue:      "default",
+				TimeDuration:      1 * time.Hour,
+				TimeDurationSlice: []time.Duration{1 * time.Hour, 2 * time.Hour, 3 * time.Hour},
 			},
 		},
 		{
