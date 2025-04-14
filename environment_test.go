@@ -192,7 +192,7 @@ func TestBindEnvWithAutoRefresh(t *testing.T) {
 	defer os.Unsetenv("TEST_AUTO_REFRESH")
 
 	var config Config
-	err := BindEnvWithAutoRefresh(&config)
+	err := BindEnvWithAutoRefresh(&config, time.Duration(1)*time.Second)
 	if err != nil {
 		t.Fatalf("BindEnvWithAutoRefresh() error = %v", err)
 	}
@@ -205,7 +205,7 @@ func TestBindEnvWithAutoRefresh(t *testing.T) {
 	os.Setenv("TEST_AUTO_REFRESH", "updated")
 
 	// Wait for the refresh to occur
-	time.Sleep(time.Duration(AUTO_REFRESH_INTERVAL+1) * time.Second)
+	time.Sleep(time.Duration(2) * time.Second)
 
 	if config.Value != "updated" {
 		t.Errorf("Value not updated after refresh, got %v, want %v", config.Value, "updated")
