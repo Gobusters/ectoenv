@@ -98,6 +98,20 @@ func setFieldValue(field reflect.Value, envValue string) error {
 	case reflect.Slice:
 		return setSliceField(field, envValue)
 	}
+
+	durationType := reflect.TypeOf(time.Duration(0))
+	if field.Type() == durationType {
+		return setDurationField(field, envValue)
+	}
+	return nil
+}
+
+func setDurationField(field reflect.Value, envValue string) error {
+	val, err := time.ParseDuration(envValue)
+	if err != nil {
+		return fmt.Errorf("unable to set value for field %s. failed to parse %s as duration: %w", field.Type().Name(), envValue, err)
+	}
+	field.Set(reflect.ValueOf(val))
 	return nil
 }
 
@@ -140,6 +154,28 @@ func setSliceField(field reflect.Value, envValue string) error {
 	case reflect.Int:
 		return setIntSlice(field, split)
 	}
+
+	elemType := field.Type().Elem()
+	durationType := reflect.TypeOf(time.Duration(0))
+
+	// handle []time.Duration
+	if elemType == durationType {
+		return setDurationSlice(field, split)
+	}
+	return nil
+}
+
+func setDurationSlice(field reflect.Value, split []string) error {
+	ds := make([]time.Duration, 0, len(split))
+	for _, str := range split {
+		d, err := time.ParseDuration(str)
+		if err != nil {
+			return fmt.Errorf("unable to set value for field %s: failed to parse %q as duration: %w",
+				field.Type().Name(), str, err)
+		}
+		ds = append(ds, d)
+	}
+	field.Set(reflect.ValueOf(ds))
 	return nil
 }
 
