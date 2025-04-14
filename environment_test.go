@@ -9,15 +9,17 @@ import (
 
 func TestBindEnv(t *testing.T) {
 	type Config struct {
-		StringValue  string    `env:"TEST_STRING"`
-		IntValue     int       `env:"TEST_INT"`
-		BoolValue    bool      `env:"TEST_BOOL"`
-		FloatValue   float64   `env:"TEST_FLOAT"`
-		StringSlice  []string  `env:"TEST_STRING_SLICE"`
-		IntSlice     []int     `env:"TEST_INT_SLICE"`
-		BoolSlice    []bool    `env:"TEST_BOOL_SLICE"`
-		FloatSlice   []float64 `env:"TEST_FLOAT_SLICE"`
-		DefaultValue string    `env:"TEST_DEFAULT" env-default:"default"`
+		StringValue   string          `env:"TEST_STRING"`
+		IntValue      int             `env:"TEST_INT"`
+		BoolValue     bool            `env:"TEST_BOOL"`
+		FloatValue    float64         `env:"TEST_FLOAT"`
+		StringSlice   []string        `env:"TEST_STRING_SLICE"`
+		IntSlice      []int           `env:"TEST_INT_SLICE"`
+		BoolSlice     []bool          `env:"TEST_BOOL_SLICE"`
+		FloatSlice    []float64       `env:"TEST_FLOAT_SLICE"`
+		DefaultValue  string          `env:"TEST_DEFAULT" env-default:"default"`
+		DurationValue time.Duration   `env:"TEST_DURATION"`
+		DurationSlice []time.Duration `env:"TEST_DURATION_SLICE"`
 	}
 
 	tests := []struct {
@@ -28,25 +30,29 @@ func TestBindEnv(t *testing.T) {
 		{
 			name: "All values set",
 			envVars: map[string]string{
-				"TEST_STRING":       "test",
-				"TEST_INT":          "42",
-				"TEST_BOOL":         "true",
-				"TEST_FLOAT":        "3.14",
-				"TEST_STRING_SLICE": "a,b,c",
-				"TEST_INT_SLICE":    "1,2,3",
-				"TEST_BOOL_SLICE":   "true,false,true",
-				"TEST_FLOAT_SLICE":  "1.1,2.2,3.3",
+				"TEST_STRING":         "test",
+				"TEST_INT":            "42",
+				"TEST_BOOL":           "true",
+				"TEST_FLOAT":          "3.14",
+				"TEST_STRING_SLICE":   "a,b,c",
+				"TEST_INT_SLICE":      "1,2,3",
+				"TEST_BOOL_SLICE":     "true,false,true",
+				"TEST_FLOAT_SLICE":    "1.1,2.2,3.3",
+				"TEST_DURATION":       "1h",
+				"TEST_DURATION_SLICE": "1h,2h,3h",
 			},
 			expected: Config{
-				StringValue:  "test",
-				IntValue:     42,
-				BoolValue:    true,
-				FloatValue:   3.14,
-				StringSlice:  []string{"a", "b", "c"},
-				IntSlice:     []int{1, 2, 3},
-				BoolSlice:    []bool{true, false, true},
-				FloatSlice:   []float64{1.1, 2.2, 3.3},
-				DefaultValue: "default",
+				StringValue:   "test",
+				IntValue:      42,
+				BoolValue:     true,
+				FloatValue:    3.14,
+				StringSlice:   []string{"a", "b", "c"},
+				IntSlice:      []int{1, 2, 3},
+				BoolSlice:     []bool{true, false, true},
+				FloatSlice:    []float64{1.1, 2.2, 3.3},
+				DefaultValue:  "default",
+				DurationValue: time.Hour,
+				DurationSlice: []time.Duration{time.Hour, 2 * time.Hour, 3 * time.Hour},
 			},
 		},
 		{
@@ -192,7 +198,7 @@ func TestBindEnvWithAutoRefresh(t *testing.T) {
 	defer os.Unsetenv("TEST_AUTO_REFRESH")
 
 	var config Config
-	err := BindEnvWithAutoRefresh(&config)
+	err := BindEnvWithAutoRefresh(&config, time.Duration(1)*time.Second)
 	if err != nil {
 		t.Fatalf("BindEnvWithAutoRefresh() error = %v", err)
 	}
@@ -205,7 +211,7 @@ func TestBindEnvWithAutoRefresh(t *testing.T) {
 	os.Setenv("TEST_AUTO_REFRESH", "updated")
 
 	// Wait for the refresh to occur
-	time.Sleep(time.Duration(AUTO_REFRESH_INTERVAL+1) * time.Second)
+	time.Sleep(time.Duration(2) * time.Second)
 
 	if config.Value != "updated" {
 		t.Errorf("Value not updated after refresh, got %v, want %v", config.Value, "updated")

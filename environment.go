@@ -14,14 +14,11 @@ var ENV_TAG = "env"
 
 var ENV_DEFAULT_TAG = "env-default"
 
-// AUTO_REFRESH_INTERVAL is the interval in seconds to refresh the environment variables
-var AUTO_REFRESH_INTERVAL = 60
-
 // BindEnv sets the values of the provided struct based on the values of the environment variables
 // defined in the struct's tags. The struct must be a non-nil pointer to a struct.
 // v: a non-nil pointer to a struct
 // returns: an error if the provided value is not a non-nil pointer to a struct or if the value of an environment variable
-func BindEnv(v interface{}) error {
+func BindEnv(v any) error {
 	rv, err := validateInput(v)
 	if err != nil {
 		return err
@@ -30,7 +27,7 @@ func BindEnv(v interface{}) error {
 	return setFieldValues(rv)
 }
 
-func validateInput(v interface{}) (reflect.Value, error) {
+func validateInput(v any) (reflect.Value, error) {
 	rv := reflect.ValueOf(v)
 	if rv.Kind() != reflect.Ptr || rv.IsNil() {
 		return reflect.Value{}, errors.New("provided value must be a non-nil pointer to a struct")
@@ -101,6 +98,20 @@ func setFieldValue(field reflect.Value, envValue string) error {
 	case reflect.Slice:
 		return setSliceField(field, envValue)
 	}
+
+	durationType := reflect.TypeOf(time.Duration(0))
+	if field.Type() == durationType {
+		return setDurationField(field, envValue)
+	}
+	return nil
+}
+
+func setDurationField(field reflect.Value, envValue string) error {
+	val, err := time.ParseDuration(envValue)
+	if err != nil {
+		return fmt.Errorf("unable to set value for field %s. failed to parse %s as duration: %w", field.Type().Name(), envValue, err)
+	}
+	field.Set(reflect.ValueOf(val))
 	return nil
 }
 
@@ -143,6 +154,28 @@ func setSliceField(field reflect.Value, envValue string) error {
 	case reflect.Int:
 		return setIntSlice(field, split)
 	}
+
+	elemType := field.Type().Elem()
+	durationType := reflect.TypeOf(time.Duration(0))
+
+	// handle []time.Duration
+	if elemType == durationType {
+		return setDurationSlice(field, split)
+	}
+	return nil
+}
+
+func setDurationSlice(field reflect.Value, split []string) error {
+	ds := make([]time.Duration, 0, len(split))
+	for _, str := range split {
+		d, err := time.ParseDuration(str)
+		if err != nil {
+			return fmt.Errorf("unable to set value for field %s: failed to parse %q as duration: %w",
+				field.Type().Name(), str, err)
+		}
+		ds = append(ds, d)
+	}
+	field.Set(reflect.ValueOf(ds))
 	return nil
 }
 
@@ -190,22 +223,22 @@ func setIntSlice(field reflect.Value, split []string) error {
 // environment variables on a interval set with `AUTO_REFRESH_INTERVAL`.
 // v: a non-nil pointer to a struct
 // returns: an error if the provided value is not a non-nil pointer to a struct or if the value of an environment variable
-func BindEnvWithAutoRefresh(v interface{}) error {
+func BindEnvWithAutoRefresh(v any, interval time.Duration) error {
 	if err := BindEnv(v); err != nil {
 		return err
 	}
 
-	refresh(AUTO_REFRESH_INTERVAL, v)
+	refresh(interval, v)
 
 	return nil
 }
 
 // refresh refreshes the environment variables
-func refresh(interval int, v interface{}) {
+func refresh(interval time.Duration, v any) {
 	go func() {
 		for {
 			// sleep for the interval
-			<-time.After(time.Duration(interval) * time.Second)
+			<-time.After(interval)
 			if err := BindEnv(v); err != nil {
 				fmt.Printf("failed to refresh environment variables: %s", err)
 			}
